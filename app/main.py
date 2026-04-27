@@ -2,6 +2,7 @@ from fastapi import FastAPI
 import logging
 import requests
 from app.services.services import APIClient
+from app.db.database import create_tables, write_monthly_trade_data
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -13,6 +14,9 @@ logger = logging.getLogger("TradingSummary")
 
 
 app = FastAPI()
+
+
+create_tables()
 
 
 @app.get("/symbols/{symbol}/annual/{year}")
@@ -37,7 +41,7 @@ def process_request(
             response = api_client.fetch_data(symbol, year)
             # logging.info(response)
 
-            success = write_to_db()
+            success = write_monthly_trade_data(response.get("Monthly Time Series", {}))
 
             # summary = calculate_summary(trading_data)
             # logger.info(summary)
@@ -72,14 +76,14 @@ def calculate_summary(trading_data):
     volumes = []
 
     for data_point in trading_data_by_day.values():
-        logging.info(data_point)
+        # logging.info(data_point)
         highs.append(float(data_point["2. high"]))
         lows.append(float(data_point["3. low"]))
         volumes.append(int(data_point["5. volume"]))
 
-    logger.info(highs)
-    logger.info(lows)
-    logger.info(volumes)
+    # logger.info(highs)
+    # logger.info(lows)
+    # logger.info(volumes)
 
     return {
         "highest": max(highs) if highs else 0,
