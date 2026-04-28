@@ -2,7 +2,13 @@ from fastapi import FastAPI
 import logging
 import requests
 from app.services.services import APIClient
-from app.db.database import create_tables, write_monthly_trade_data
+from app.db.database import (
+    create_tables,
+    write_monthly_trade_data,
+    load_db_data_keys,
+    engine,
+)
+from sqlalchemy import text
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -17,6 +23,8 @@ app = FastAPI()
 
 
 create_tables()
+data_keys = load_db_data_keys()
+logger.debug(f"Initial data keys loaded: {len(data_keys)} entries")
 
 
 @app.get("/symbols/{symbol}/annual/{year}")
@@ -31,38 +39,90 @@ def process_request(
     year,
     api_client: APIClient,
 ):
-    cached_data = check_db(symbol, year)
+    # cached_data = check_db(symbol, year)
 
-    if cached_data is None:
-        # calling the api
-        # api_client = APIClient
-
-        try:
-            response = api_client.fetch_data(symbol, year)
-            # logging.info(response)
-
-            success = write_monthly_trade_data(response.get("Monthly Time Series", {}))
-
-            # summary = calculate_summary(trading_data)
-            # logger.info(summary)
-
-            return calculate_summary(response)
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error calling Alpha Vantage API: {str(e)}")
-            return {
-                "error": f"Failed to fetch trading data: {str(e)}",
-            }
+    if data_keys and any(
+        date.startswith(f"{year}-") for _, date in data_keys if _[0] == symbol
+    ):
+        logger.info(f"Data for {symbol} in {year} found in database cache")
+        data = get_monthly_data_from_db(symbol, year)
+        if data:
+            logger.info(
+                f"Data for {symbol} in {year} successfully retrieved from database"
+            )
+        else:
+            logger.warning(
+                f"Data for {symbol} in {year} was expected in database but not found"
+            )
     else:
-        return cached_data
+        logger.info(f"No cached data for {symbol} in {year} found in database")
+        data = read_from_api(api_client, symbol, year)
+        if data and "error" not in data:
+            try:
+                write_monthly_trade_data(data)
+                data_keys.update(
+                    (symbol, date)
+                    for date in data.get("Monthly Time Series", {}).keys()
+                )
+            except Exception as e:
+                logger.error(f"Error writing data to database: {str(e)}")
+
+    logger.debug(f"data_keys updated: {data_keys}")
+    return calculate_summary(data)
+
+
+def read_from_api(api_client: APIClient, symbol: str, year: int):
+    try:
+        response = api_client.fetch_data(symbol, year)
+        return response
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error calling Alpha Vantage API: {str(e)}")
+        return {
+            "error": f"Failed to fetch trading data: {str(e)}",
+        }
 
 
 def write_to_db():
     pass
 
 
-def check_db(symbol, year):
-    pass
+def get_monthly_data_from_db(symbol, year):
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    SELECT date, open, high, low, close, volume 
+                    FROM monthly_data 
+                    WHERE symbol = :symbol AND date LIKE :year_pattern
+                    ORDER BY date DESC
+                    """
+                ),
+                {"symbol": symbol, "year_pattern": f"{year}-%"},
+            )
+
+            rows = result.fetchall()
+
+            if not rows:
+                return None
+
+            # Format data to match API response structure
+            monthly_series = {}
+            for row in rows:
+                date = row[0]
+                monthly_series[date] = {
+                    "1. open": str(row[1]),
+                    "2. high": str(row[2]),
+                    "3. low": str(row[3]),
+                    "4. close": str(row[4]),
+                    "5. volume": str(row[5]),
+                }
+
+            return {"Monthly Time Series": monthly_series}
+    except Exception as e:
+        logger.error(f"Error checking database: {str(e)}")
+        return None
 
 
 def calculate_summary(trading_data):

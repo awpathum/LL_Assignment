@@ -27,22 +27,32 @@ def get_db_connection():
         conn.close()
 
 
+def load_db_data_keys():
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text("""SELECT symbol, date FROM monthly_data"""))
+            data_keys = set((row[0], row[1]) for row in result)
+            logger.info(f"Loaded {len(data_keys)} data keys from the database")
+            return data_keys
+    except Exception as e:
+        logger.error(f"Error loading data keys from the database: {str(e)}")
+        raise
+
+
 def create_tables():
     try:
         with engine.begin() as conn:
             conn.execute(
                 text(
                     """CREATE TABLE IF NOT EXISTS monthly_data (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        year TEXT NOT NULL,
-                        month TEXT NOT NULL,
-                        day TEXT NOT NULL,
+                        symbol TEXT NOT NULL,
+                        date TEXT NOT NULL,
                         open REAL,
                         high REAL NOT NULL,
                         low REAL NOT NULL,
                         close REAL,
                         volume INTEGER NOT NULL,
-                        UNIQUE(date)
+                        PRIMARY KEY (symbol, date)
                     )"""
                 )
             )
@@ -51,8 +61,12 @@ def create_tables():
         raise
 
 
-def write_monthly_trade_data(records):
+def write_monthly_trade_data(api_data):
     try:
+        records = api_data.get("Monthly Time Series", {})
+        metadata = api_data.get("Meta Data", {})
+        symbol = metadata.get("2. Symbol", None)
+
         with engine.begin() as conn:
             for date, record in records.items():
                 logger.info(f"Inserting record for date: {date}")
@@ -60,22 +74,18 @@ def write_monthly_trade_data(records):
 
                 # Extract year, month from date string (format: YYYY-MM-DD)
                 date_parts = date.split("-")
-                year = int(date_parts[0])
-                month = int(date_parts[1])
-                day = int(date_parts[2])
 
                 conn.execute(
                     text(
                         """
                     INSERT OR REPLACE INTO monthly_data
-                    (year, month, day, open, high, low, close, volume)
-                    VALUES (:year, :month, :date, :open, :high, :low, :close, :volume)
+                    (symbol, date, open, high, low, close, volume)
+                    VALUES (:symbol, :date, :open, :high, :low, :close, :volume)
                 """
                     ),
                     {
-                        "year": year,
-                        "month": month,
-                        "day": day,
+                        "symbol": symbol,
+                        "date": date,
                         "open": float(record.get("1. open")),
                         "high": float(record["2. high"]),
                         "low": float(record["3. low"]),
