@@ -61,6 +61,20 @@ def create_tables():
         raise
 
 
+def create_indexes():
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_symbol_date ON monthly_data(symbol, date)"
+                )
+            )
+        logger.info("Indexes created successfully")
+    except Exception as e:
+        logger.error(f"Error creating indexes: {str(e)}")
+        raise
+
+
 def write_monthly_trade_data(api_data):
     try:
         records = api_data.get("Monthly Time Series", {})

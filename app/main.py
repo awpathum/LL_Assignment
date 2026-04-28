@@ -6,6 +6,7 @@ from app.db.database import (
     create_tables,
     write_monthly_trade_data,
     load_db_data_keys,
+    create_indexes,
     engine,
 )
 from sqlalchemy import text
@@ -23,8 +24,10 @@ app = FastAPI()
 
 
 create_tables()
+create_indexes()
+
 data_keys = load_db_data_keys()
-logger.debug(f"Initial data keys loaded: {len(data_keys)} entries")
+# logger.debug(f"Initial data keys loaded: {len(data_keys)} entries")
 
 
 @app.get("/symbols/{symbol}/annual/{year}")
@@ -67,7 +70,7 @@ def process_request(
             except Exception as e:
                 logger.error(f"Error writing data to database: {str(e)}")
 
-    logger.debug(f"data_keys updated: {data_keys}")
+    # logger.debug(f"data_keys updated: {data_keys}")
     return calculate_summary(data)
 
 
