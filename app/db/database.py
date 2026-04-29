@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 from app.logger import logger
+from app.models.monthly_trading_data import MonthlyTradingData
 
 load_dotenv()
 
@@ -150,14 +151,22 @@ def get_monthly_data_from_db(symbol, year):
             # Format data to match API response structure
             monthly_series = {}
             for row in rows:
-                date = row[0]
-                monthly_series[date] = {
-                    "1. open": str(row[1]) if row[1] is not None else "",
-                    "2. high": str(row[2]) if row[2] is not None else "",
-                    "3. low": str(row[3]) if row[3] is not None else "",
-                    "4. close": str(row[4]) if row[4] is not None else "",
-                    "5. volume": str(row[5]) if row[5] is not None else "",
-                }
+                date = str(row[0])
+                # monthly_series[date] = {
+                #     "1. open": str(row[1]) if row[1] is not None else "",
+                #     "2. high": str(row[2]) if row[2] is not None else "",
+                #     "3. low": str(row[3]) if row[3] is not None else "",
+                #     "4. close": str(row[4]) if row[4] is not None else "",
+                #     "5. volume": str(row[5]) if row[5] is not None else "",
+                # }
+                monthly_series[date] = MonthlyTradingData(
+                    date=date,
+                    open_val=row[1],
+                    high=row[2],
+                    low=row[3],
+                    close=row[4],
+                    volume=row[5],
+                )
 
             return monthly_series
     except Exception as e:
