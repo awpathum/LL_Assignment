@@ -79,7 +79,7 @@ returns:
 ## Project Structure
 
 ```
-LiquidLabs_assignment/
+LL_Assignment/
 ├── app/
 │   ├── db/
 │   │   ├── database.py          # Database setup, schema, and queries
@@ -115,7 +115,7 @@ LiquidLabs_assignment/
 
    ```bash
    git clone <repository-url>
-   cd LiquidLabs_assignment
+   cd LL_Assignment
    ```
 
 2. **Create virtual environment** (recommended)
