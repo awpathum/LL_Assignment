@@ -98,7 +98,7 @@ def calculate_summary(monthly_trading_data: dict[str, MonthlyTradingData]):
     return {
         "highest": max(highs) if highs else 0,
         "lowest": min(lows) if lows else 0,
-        "total_volumn": sum(volumes) if volumes else 0,
+        "volume": sum(volumes) if volumes else 0,
     }
 
 

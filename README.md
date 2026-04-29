@@ -46,9 +46,10 @@ returns:
 
 ### Database
 
-- **SQLAlchemy (2.0.23)** - SQL toolkit and ORM
-  - Database-agnostic (supports SQLite, PostgreSQL, MySQL, etc.)
-  - SQL query building and result mapping
+- **SQLAlchemy (2.0.23)** - SQL toolkit for connection management and raw SQL execution
+  - Used for database connections and transaction management, NOT as an ORM
+  - Raw SQL queries executed via `text()` for direct control over database operations
+  - Database-agnostic connection handling (supports SQLite, PostgreSQL, MySQL, etc.)
   - Connection pooling for efficient database management
   - Prevents SQL injection through parameterized queries
 
@@ -309,11 +310,18 @@ The caching system helps minimize API calls. Consider upgrading for production u
 
 ## Future Improvements
 
-- Implement a background task to periodically sync database with Alpha Vantage API
-- Add authentication and rate limiting
-- Implement thread-safe cache management for multi-worker deployments
-- Add support for custom date ranges beyond yearly summaries
-- Implement data compression for large historical datasets
+### Current Caching Strategy Limitation
+The application currently calls the Alpha Vantage API for each new year request, even if data for that symbol already exists in the database. This approach:
+- **Pros**: Ensures latest data, simple logic, avoids complex year-range tracking
+- **Cons**: Inefficient API usage, higher costs at scale, exceeds rate limits faster
+
+**Example:**
+1. When requesting data for year 1800 (not in cache), call the API to get all available years for that symbol
+2. All years get written to database with `INSERT OR REPLACE INTO` 
+3. This bahavior ensures that we do not miss any newly updated years to the Alpha Vantage.
+
+- **Implement year-range tracking**: Store min/max years per symbol in database to avoid redundant API calls
+- **Background sync task**: Periodically update database with latest Alpha Vantage data on a timer, independent of user requests
 
 ## License
 
