@@ -2,11 +2,9 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
-import logging
+from app.logger import logger
 
 load_dotenv()
-
-logger = logging.getLogger("TradingSummary")
 
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./trade_data.db")

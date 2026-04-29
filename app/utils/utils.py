@@ -1,5 +1,5 @@
 import json
-
+from app.logger import logger
 
 def get_unique_years(api_response):
     """
@@ -61,24 +61,37 @@ def filter_monthly_data_by_year(monthly_time_series, year):
 
 
 def calculate_summary(trading_data):
-    # logging.info(trading_data)
-    # trading_data_by_day = trading_data.get("Monthly Time Series", {})
-
-    # print(trading_data_by_day)
+    if trading_data is None or not trading_data:
+        logger.warning("No trading data available to calculate summary")
+        return {"highest": 0, "lowest": 0, "total_volumn": 0}
 
     highs = []
     lows = []
     volumes = []
 
-    for data_point in trading_data.values():
-        # logging.info(data_point)
-        highs.append(float(data_point["2. high"]))
-        lows.append(float(data_point["3. low"]))
-        volumes.append(int(data_point["5. volume"]))
+    for date, data_point in trading_data.items():
+        try:
+            if not isinstance(data_point, dict):
+                logger.warning(
+                    f"Skipping invalid data point for date {date}: not a dictionary"
+                )
+                continue
 
-    # logger.info(highs)
-    # logger.info(lows)
-    # logger.info(volumes)
+                # Check required keys exist
+            if (
+                "2. high" not in data_point
+                or "3. low" not in data_point
+                or "5. volume" not in data_point
+            ):
+                logger.warning(f"Skipping date {date}: missing required keys")
+                continue
+
+            highs.append(float(data_point["2. high"]))
+            lows.append(float(data_point["3. low"]))
+            volumes.append(int(data_point["5. volume"]))
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Skipping date {date} due to data parsing error: {str(e)}")
+            continue
 
     return {
         "highest": max(highs) if highs else 0,
