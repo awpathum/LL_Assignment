@@ -81,6 +81,7 @@ def create_indexes():
 
 
 def write_monthly_trade_data(api_data):
+    is_success = False
     try:
         records = api_data.get("Monthly Time Series", {})
         metadata = api_data.get("Meta Data", {})
@@ -88,31 +89,42 @@ def write_monthly_trade_data(api_data):
 
         with engine.begin() as conn:
             for date, record in records.items():
+                open = record.get("1. open", None)
+                high = record.get("2. high", None)
+                low = record.get("3. low", None)
+                close = record.get("4. close", None)
+                volume = record.get("5. volume", None)
+
+                if symbol is None or high is None or low is None or volume is None:
+                    logger.warning(
+                        f"Skipping record for date {date} due to missing required fields"
+                    )
+                    continue
 
                 conn.execute(
-                    text(
-                        """
+                    text("""
                     INSERT OR REPLACE INTO monthly_data
                     (symbol, date, open, high, low, close, volume)
                     VALUES (:symbol, :date, :open, :high, :low, :close, :volume)
-                """
-                    ),
+                """),
                     {
                         "symbol": symbol,
                         "date": date,
-                        "open": float(record.get("1. open")),
-                        "high": float(record["2. high"]),
-                        "low": float(record["3. low"]),
-                        "close": float(record.get("4. close")),
-                        "volume": int(record["5. volume"]),
+                        "open": float(open),
+                        "high": float(high),
+                        "low": float(low),
+                        "close": float(close),
+                        "volume": int(volume),
                     },
                 )
             logger.info("All records inserted successfully")
             conn.commit()
-            return True
+            is_success = True
     except Exception as e:
         logger.error(f"Error writing monthly trade data: {str(e)}")
         raise
+    finally:
+        return is_success
 
 
 def get_monthly_data_from_db(symbol, year):
@@ -140,11 +152,11 @@ def get_monthly_data_from_db(symbol, year):
             for row in rows:
                 date = row[0]
                 monthly_series[date] = {
-                    "1. open": str(row[1]),
-                    "2. high": str(row[2]),
-                    "3. low": str(row[3]),
-                    "4. close": str(row[4]),
-                    "5. volume": str(row[5]),
+                    "1. open": str(row[1]) if row[1] is not None else "",
+                    "2. high": str(row[2]) if row[2] is not None else "",
+                    "3. low": str(row[3]) if row[3] is not None else "",
+                    "4. close": str(row[4]) if row[4] is not None else "",
+                    "5. volume": str(row[5]) if row[5] is not None else "",
                 }
 
             return monthly_series
