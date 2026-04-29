@@ -66,7 +66,7 @@ def process_request(
             unique_years = get_unique_years(
                 get_monthly_time_series_from_api_response(data)
             )
-            # Add all (symbol, year) combinations to data_keys
+
             for year_from_api in unique_years:
                 data_keys.add((symbol, int(year_from_api)))
             logger.info(f"Added {len(unique_years)} year(s) for {symbol} to data_keys")
@@ -76,6 +76,11 @@ def process_request(
         logger.info(f"Cached data for {symbol} in {year} found in database")
 
     monthly_series_data = get_monthly_data_from_db(symbol, year)
+    if monthly_series_data is None:
+        logger.warning(
+            f"No monthly series data found in database for {symbol} in {year}"
+        )
+        return {"error": f"No data available for {symbol} in {year}"}
 
     return calculate_summary(monthly_series_data)
 
