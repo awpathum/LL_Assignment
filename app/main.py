@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from app.logger import logger
 from app.services.services import APIClient
@@ -16,13 +17,32 @@ from app.db.database import (
 )
 
 
-app = FastAPI()
+# Global variable to cache data keys (Note that this is not thread safe, but it is sufficient for this assignment.)
+data_keys = set()
 
 
-create_tables()
-create_indexes()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan events: startup and shutdown"""
+    # Startup event
+    global data_keys
+    try:
+        create_tables()
+        create_indexes()
+        data_keys = load_db_data_keys()
+        logger.info(
+            f"Application startup complete. Loaded {len(data_keys)} cached data keys."
+        )
+    except Exception as e:
+        logger.error(f"Failed to initialize application: {str(e)}")
+        raise
 
-data_keys = load_db_data_keys()
+    yield
+
+    logger.info("Application shutdown")
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 def get_api_client() -> APIClient:
@@ -43,7 +63,7 @@ def process_request(symbol, year, api_client):
     if (symbol, year) not in data_keys:
 
         logger.info(f"No cached data for {symbol} in {year} found in database")
-        data = api_client.read_from_api(symbol, year)
+        data = api_client.read_from_api(symbol)
 
         if not data or "error" in data:
             error_msg = data.get("error", "Unknown error occurred while fetching data")

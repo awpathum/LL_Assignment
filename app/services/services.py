@@ -17,7 +17,8 @@ class APIClient:
         if not self.api_key:
             raise ValueError("API_KEY environment variable not found")
 
-    def read_from_api(self, symbol: str, year: int):
+    def read_from_api(self, symbol: str):
+
         response = self.fetch_data(symbol)
         data = self.validate_api_data(response)
         return data
@@ -36,13 +37,21 @@ class APIClient:
         try:
             response = requests.get(ALPHAVANTAGE_BASE_URL, params=params, timeout=10)
             response.raise_for_status()
+            return response.json()
         except requests.Timeout:
             error_msg = f"API request timeout for symbol {symbol}"
+            logger.error(error_msg)
             return {"error": error_msg}
-        except requests.exceptions.RequestException as e:
-            raise ValueError(f"Error calling Alpha Vantage API: {str(e)}")
-
-        return response.json()
+        except requests.ConnectionError as e:
+            error_msg = (
+                f"Connection error calling Alpha Vantage API for {symbol}: {str(e)}"
+            )
+            logger.error(error_msg)
+            return {"error": error_msg}
+        except requests.RequestException as e:
+            error_msg = f"Error calling Alpha Vantage API: {str(e)}"
+            logger.error(error_msg)
+            return {"error": error_msg}
 
     def validate_api_data(self, data):
         """Note: We can validate this response using sample_response.json file, without hardcoding field names in the code.

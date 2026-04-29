@@ -71,17 +71,17 @@ def calculate_summary(monthly_trading_data: dict[str, MonthlyTradingData]):
         try:
             if not isinstance(data_point, MonthlyTradingData):
                 logger.warning(
-                    f"Skipping invalid data point for date {date}: not a dictionary"
+                    f"Skipping invalid data point for date {date}: not a MonthlyTradingData instance"
                 )
                 continue
 
-                # Check required keys exist
+            # Check required fields exist
             high = data_point.high
             low = data_point.low
             volume = data_point.volume
 
             if high is None or low is None or volume is None:
-                logger.warning(f"Skipping date {date}: missing required keys")
+                logger.warning(f"Skipping date {date}: missing required fields")
                 continue
 
             highs.append(float(high))
@@ -91,6 +91,9 @@ def calculate_summary(monthly_trading_data: dict[str, MonthlyTradingData]):
         except (ValueError, TypeError) as e:
             logger.warning(f"Skipping date {date} due to data parsing error: {str(e)}")
             continue
+
+    if not highs or not lows or not volumes:
+        logger.warning("No valid data points found to calculate summary")
 
     return {
         "highest": max(highs) if highs else 0,

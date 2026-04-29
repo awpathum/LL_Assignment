@@ -95,8 +95,12 @@ def write_monthly_trade_data(api_data):
                         "volume": data_point["volume"],
                     },
                 )
-            logger.info("All records inserted successfully")
-            is_success = True
+            if data_points:
+                logger.info(f"Inserted/updated {len(data_points)} records successfully")
+                is_success = True
+            else:
+                logger.warning("No records found in API response to write")
+                is_success = False
     except Exception as e:
         logger.error(f"Error writing monthly trade data: {str(e)}")
         raise
