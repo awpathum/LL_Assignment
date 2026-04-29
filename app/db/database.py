@@ -30,9 +30,16 @@ def get_db_connection():
 def load_db_data_keys():
     try:
         with engine.begin() as conn:
-            result = conn.execute(text("""SELECT symbol, date FROM monthly_data"""))
+            result = conn.execute(
+                text(
+                    """SELECT DISTINCT symbol, CAST(SUBSTR(date, 1, 4) AS INTEGER) as year 
+                                           FROM monthly_data 
+                                           ORDER BY symbol, year DESC"""
+                )
+            )
             data_keys = set((row[0], row[1]) for row in result)
             logger.info(f"Loaded {len(data_keys)} data keys from the database")
+            logger.debug(f"Data keys: {data_keys}")
             return data_keys
     except Exception as e:
         logger.error(f"Error loading data keys from the database: {str(e)}")
@@ -83,11 +90,6 @@ def write_monthly_trade_data(api_data):
 
         with engine.begin() as conn:
             for date, record in records.items():
-                logger.info(f"Inserting record for date: {date}")
-                logger.info(f"Record data: {record}")
-
-                # Extract year, month from date string (format: YYYY-MM-DD)
-                date_parts = date.split("-")
 
                 conn.execute(
                     text(
@@ -108,6 +110,7 @@ def write_monthly_trade_data(api_data):
                     },
                 )
             logger.info("All records inserted successfully")
+            conn.commit()
             return True
     except Exception as e:
         logger.error(f"Error writing monthly trade data: {str(e)}")

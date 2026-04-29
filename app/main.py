@@ -43,10 +43,9 @@ def process_request(
     api_client: APIClient,
 ):
     # cached_data = check_db(symbol, year)
+    logger.debug(f"Initial data keys loaded: {len(data_keys)} entries")
 
-    if data_keys and any(
-        date.startswith(f"{year}-") for _, date in data_keys if _[0] == symbol
-    ):
+    if (symbol, year) in data_keys:
         logger.info(f"Data for {symbol} in {year} found in database cache")
         data = get_monthly_data_from_db(symbol, year)
         if data:
@@ -63,14 +62,11 @@ def process_request(
         if data and "error" not in data:
             try:
                 write_monthly_trade_data(data)
-                data_keys.update(
-                    (symbol, date)
-                    for date in data.get("Monthly Time Series", {}).keys()
-                )
+                data_keys.add((symbol, year))
             except Exception as e:
                 logger.error(f"Error writing data to database: {str(e)}")
 
-    # logger.debug(f"data_keys updated: {data_keys}")
+    logger.debug(f"data_keys updated: {data_keys}")
     return calculate_summary(data)
 
 
