@@ -81,16 +81,24 @@ returns:
 LiquidLabs_assignment/
 ├── app/
 │   ├── db/
-│   │   └── database.py          # Database setup, schema, and queries
+│   │   ├── database.py          # Database setup, schema, and queries
+│   │   └── queries.py           # SQL queries (centralized)
+│   ├── models/
+│   │   └── monthly_trading_data.py  # MonthlyTradingData model
+│   ├── schemas/
+│   │   └── api_response_schema.json  # API response schema
 │   ├── services/
 │   │   └── services.py          # API client for Alpha Vantage
 │   ├── utils/
-│   │   └── utils.py             # Utility functions for data
-│   ├── main.py                  # API end point, process request logic
-│   ├── logger.py                # common logger
+│   │   └── utils.py             # Utility functions for data processing
+│   ├── main.py                  # API endpoints and request processing logic
+│   ├── logger.py                # Centralized logging configuration
+│   └── __init__.py
+├── logs/                        # Application logs directory
 ├── requirements.txt             # Python dependencies
-├── .env.example                 # replace this with your env file
-└── trade_data.db               # SQLite database
+├── .env.example                 # Environment variables template
+├── README.md                    # This file
+└── trade_data.db               # SQLite database (auto-created)
 ```
 
 ## Installation
@@ -207,18 +215,34 @@ CREATE TABLE IF NOT EXISTS monthly_data (
 CREATE INDEX idx_symbol_date ON monthly_data(symbol, date)
 ```
 
+## Centralized SQL Queries
+
+All SQL queries are stored in `app/db/queries.py` for better maintainability and organization:
+
+| Query | Purpose |
+|-------|---------|
+| `LOAD_DATA_KEYS` | Fetch distinct symbols and years from database |
+| `CREATE_MONTHLY_DATA_TABLE` | Create monthly_data table if not exists |
+| `CREATE_SYMBOL_DATE_INDEX` | Create index on (symbol, date) for faster queries |
+| `INSERT_MONTHLY_DATA` | Insert or replace monthly trading data |
+| `GET_MONTHLY_DATA_BY_SYMBOL_YEAR` | Fetch data for specific symbol and year |
+
 ## How It Works
 
-1. **Request Received** - User requests yearly trading summary for a stock symbol
-2. **Cache Check** - System checks if data exists in database for that (symbol, year)
-3. **Cache Hit** - If data exists, retrieves from database (fast)
-4. **Cache Miss** - If data doesn't exist:
+1. **Application Startup** - Lifespan event initializes database:
+   - Creates tables and indexes if they don't exist
+   - Loads cached data keys into memory
+   - Logs initialization status
+2. **Request Received** - User requests yearly trading summary for a stock symbol
+3. **Cache Check** - System checks if data exists in database for that (symbol, year)
+4. **Cache Hit** - If data exists, retrieves from database (fast)
+5. **Cache Miss** - If data doesn't exist:
    - Calls Alpha Vantage API to fetch monthly data
-   - Validates API response
+   - Validates API response format and content
    - Stores data in SQLite database
-   - Updates cache tracking
-5. **Calculation** - Calculates highest, lowest, and total volume for the year
-6. **Response** - Returns summary statistics
+   - Updates cache tracking in memory
+6. **Calculation** - Calculates highest, lowest, and total volume for the requested year
+7. **Response** - Returns summary statistics or error message
 
 ## Error Handling
 
@@ -285,7 +309,11 @@ The caching system helps minimize API calls. Consider upgrading for production u
 
 ## Future Improvements
 
-- Avoid calling Alpha Vantage API for invalid years. Create a timer to make API call to Alpha Vantage API and updated the database.
+- Implement a background task to periodically sync database with Alpha Vantage API
+- Add authentication and rate limiting
+- Implement thread-safe cache management for multi-worker deployments
+- Add support for custom date ranges beyond yearly summaries
+- Implement data compression for large historical datasets
 
 ## License
 
