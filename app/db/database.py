@@ -115,3 +115,41 @@ def write_monthly_trade_data(api_data):
     except Exception as e:
         logger.error(f"Error writing monthly trade data: {str(e)}")
         raise
+
+
+def get_monthly_data_from_db(symbol, year):
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    SELECT date, open, high, low, close, volume 
+                    FROM monthly_data 
+                    WHERE symbol = :symbol AND date LIKE :year_pattern
+                    ORDER BY date DESC
+                    """
+                ),
+                {"symbol": symbol, "year_pattern": f"{year}-%"},
+            )
+
+            rows = result.fetchall()
+
+            if not rows:
+                return None
+
+            # Format data to match API response structure
+            monthly_series = {}
+            for row in rows:
+                date = row[0]
+                monthly_series[date] = {
+                    "1. open": str(row[1]),
+                    "2. high": str(row[2]),
+                    "3. low": str(row[3]),
+                    "4. close": str(row[4]),
+                    "5. volume": str(row[5]),
+                }
+
+            return monthly_series
+    except Exception as e:
+        logger.error(f"Error checking database: {str(e)}")
+        return None
