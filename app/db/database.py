@@ -40,7 +40,6 @@ def load_db_data_keys():
             result = conn.execute(text(LOAD_DATA_KEYS))
             data_keys = set((row[0], row[1]) for row in result)
             logger.info(f"Loaded {len(data_keys)} data keys from the database")
-            logger.debug(f"Data keys: {data_keys}")
             return data_keys
     except Exception as e:
         logger.error(f"Error loading data keys from the database: {str(e)}")
